@@ -9,11 +9,9 @@ import datetime
 parser = argparse.ArgumentParser(description="Get variant-level (AC, AN, missing rate, ...) and individual-level (Ti/Tv, number of heterozygotes, ...) summary from a VCF file")
 parser.add_argument('input', help="The VCF input file")
 parser.add_argument('output', help='The prefix of output files')
-#parser.add_argument('--by', help='Get summary results by variant/individual/both (default: both)', choices=['variant','individual','both'], default='both')
 args = parser.parse_args()
 
 def vcfSummary(vcf, file):
-#def vcfSummary(vcf, file, by):
     print()
     print("Analysis started: {}".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     print()
@@ -39,14 +37,6 @@ def vcfSummary(vcf, file):
             return 'Ti'
         else:
             return 'Tv'
-
-    def genoParser(data, format):
-        f = format.split(':')
-        g = data.split(':')
-        geno = {}
-        for i in range(len(f)):
-            geno[f[i]] = g[i]
-        return(geno)
 
     nMarker = nMAP = nMNP = nIns = nDel = nSNP = nTi = nTv = 0
     
@@ -110,9 +100,7 @@ def vcfSummary(vcf, file):
                                 #data[i] = "0/0:.:.:.:.:.,."
                             else:
                                 #print(data[i])
-                                geno = genoParser(data[i], geno_format)
-                                #GT:FT:GQ:GL:DP:AD
-                                GT = geno['GT']
+                                GT = data[i][0:3]
                                 if GT.split(GT[1])[0] != GT.split(GT[1])[1]:
                                     A1 += 1
                                     A2 += 1
@@ -151,9 +139,7 @@ def vcfSummary(vcf, file):
                                 #data[i] = "0/0:.:.:.:.:.,."
                             else:
                                 #print(data[i])
-                                geno = genoParser(data[i], geno_format)
-                                #GT:FT:GQ:GL:DP:AD
-                                GT = geno['GT']
+                                GT = data[i][0:3]
                                 if GT.split(GT[1])[0] != GT.split(GT[1])[1]:
                                     A1 += 1
                                     A2 += 1
@@ -190,4 +176,3 @@ def vcfSummary(vcf, file):
     print()
 
 vcfSummary(args.input, args.output)
-#vcfSummary(args.input, args.output, args.by)
