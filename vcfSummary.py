@@ -6,7 +6,7 @@ import sys
 import argparse
 import datetime 
 
-parser = argparse.ArgumentParser(description="Get variant-level (AC, AN, missing rate, ...) and individual-level (Ti/Tv, number of heterozygotes, ...) summary from a VCF file")
+parser = argparse.ArgumentParser(description="Get variant- and individual-level summary from a VCF file. For example: AC, AF, missing rate, ... for variants; NVAR, Ti/Tv, ... for subjects")
 parser.add_argument('input', help="The VCF input file")
 parser.add_argument('output', help='The prefix of output files')
 args = parser.parse_args()
