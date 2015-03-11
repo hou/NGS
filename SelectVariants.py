@@ -18,7 +18,7 @@ parser.add_argument('--stoploss', action='store_true', help='use this flag to se
 args = parser.parse_args()
 
 
-def selectVariant(input, output, gene_model, maf_threshold, splicing, frameshift, nonsynonymous, stop_gain=True, stop_loss=True):
+def selectVariant(input, output, gene_model, maf_threshold, splicing, frameshift, nonsynonymous, stop_gain, stop_loss):
     data = open(input)
     out = open(output, 'w')
     firstline = next(data)
