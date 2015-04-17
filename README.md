@@ -1,6 +1,6 @@
 Some tools for NGS studies
 
-1. vcfSummary.py
+- vcfSummary.py
 ```
 usage: vcfSummary.py [-h] input output
 
@@ -13,7 +13,7 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
 ```
-2. SelectVariants.py
+- SelectVariants.py
 ```
 usage: SelectVariants.py [-h] [--genemodel {ensembl,refSeq}] [--maf N]
                           [--splicing] [--frameshift] [--nonsynonymous]
@@ -36,4 +36,23 @@ optional arguments:
   --nonsynonymous       use this flag to select non-synonymous variants
   --stopgain            use this flag to select stop-gain variants
   --stoploss            use this flag to select stop-loss variants
+```
+- backfillVCF.py
+```
+usage: backfillVCF.py [-h] [--subjects] input output
+
+Backfilling is needed when different VCF files were merged. This script will
+go through the merged VCF file, and backfill the genotypes to '0/0' when all
+subejcts provided by the user have missing calls
+
+positional arguments:
+  input        Name of the input file (VCF format)
+  output       Name of the output file
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --subjects   A file that includes groups of subjects for whom the
+               backfilling is needed (This file can have multhiple lines, but
+               subjects that belong to the same group have to be on a single
+               line)
 ```
