@@ -1,7 +1,7 @@
 Some tools for NGS studies
 
 1. vcfSummary.py
-
+```
 usage: vcfSummary.py [-h] input output
 
 Get variant- and individual-level summary from a VCF file. For example: AC, AF, missing rate, ... for variants; NVAR, Ti/Tv, ... for subjects
@@ -12,9 +12,9 @@ positional arguments:
 
 optional arguments:
   -h, --help  show this help message and exit
-
+```
 2. SelectVariants.py
-
+```
 usage: SelectVariants.py [-h] [--genemodel {ensembl,refSeq}] [--maf N]
                           [--splicing] [--frameshift] [--nonsynonymous]
                           [--stopgain] [--stoploss]
@@ -36,3 +36,4 @@ optional arguments:
   --nonsynonymous       use this flag to select non-synonymous variants
   --stopgain            use this flag to select stop-gain variants
   --stoploss            use this flag to select stop-loss variants
+```
