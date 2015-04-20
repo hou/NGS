@@ -13,6 +13,23 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
 ```
+- vcfPedcheck.py
+```
+usage: vcfPedcheck.py [-h] [--zeroout] [--me N] vcf fam prefix
+
+Scan the vcf file for Mendelian Errors
+
+positional arguments:
+  vcf            The VCF input file
+  fam            The fam file
+  prefix         The prefix of the output files
+
+optional arguments:
+  -h, --help     show this help message and exit
+  --zeroout, -z  Create a new vcf file by zeroing out all Mendelian Errors
+  --me N         Mark all variants with > N Mendelian error rate (based on
+                 trios) in the new vcf file
+```
 - SelectVariants.py
 ```
 usage: SelectVariants.py [-h] [--genemodel {ensembl,refSeq}] [--maf N]
