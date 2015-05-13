@@ -10,7 +10,7 @@ parser.add_argument('vcf', help="The VCF input file")
 parser.add_argument('fam', help='The fam file ')
 parser.add_argument('prefix', help='The prefix of the output files')
 parser.add_argument('--zeroout','-z', action='store_true', help='Create a new vcf file by zeroing out all Mendelian Errors')
-parser.add_argument('--me', metavar="N", type=float, default=0.1, help='Mark all variants with > N Mendelian error rate (based on trios) in the new vcf file')
+parser.add_argument('--me', metavar="N", type=float, default=0.1, help='Mark all variants with > N Mendelian error rate (default: 0.1 based on trios) in the new vcf file')
 
 args = parser.parse_args()
 
@@ -75,13 +75,14 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
             if zeroout:
                 output.write(line)
             continue
-        elif line.startswith("#"): 
+        elif line.startswith("#CHROM"): 
             header = line.strip().split()
             nIndiv = len(header) - 9
             niMendelError = [0 for i in header]
             print("{} individuals read from [ {} ]".format(nIndiv, vcf))
             vcfIDs = header[9:]
             if zeroout:
+                output.write("##FILTER=<ID=HighMendelianError,Description=\"Mendelian error rate greater than {} (based on trios)\">\n".format(me))
                 output.write(line)
         elif line.startswith('Y') or line.startswith('chrY'):
             nchrY += 1
@@ -116,12 +117,18 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
                 kid = header.index(j)
                 kid_sex = SEX[j]
                 fatherGeno = data[father].split(":")[0]
+                if len(fatherGeno) == 1:
+                    fatherGeno = "{}/{}".format(fatherGeno, fatherGeno)
                 fatherAlleles = set(fatherGeno.split(fatherGeno[1]))
                 fatherAlleles.discard(".")
                 motherGeno = data[mother].split(":")[0]
+                if len(motherGeno) == 1:
+                    motherGeno = "{}/{}".format(motherGeno, motherGeno)
                 motherAlleles = set(motherGeno.split(motherGeno[1]))
                 motherAlleles.discard(".")
                 kidGeno = data[kid].split(":")[0]
+                if len(kidGeno) == 1:
+                    kidGeno = "{}/{}".format(kidGeno, kidGeno)
                 kidAlleles = set(kidGeno.split(kidGeno[1]))
                 kidAlleles.discard(".")
                 parentsAlleles = fatherAlleles.union(motherAlleles)
@@ -160,9 +167,13 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
                     pass
                 else:
                     fatherGeno = data[father].split(":")[0]
+                    if len(fatherGeno) == 1:
+                        fatherGeno = "{}/{}".format(fatherGeno, fatherGeno)
                     fatherAlleles = set(fatherGeno.split(fatherGeno[1]))
                     fatherAlleles.discard(".")
                     kidGeno = data[kid].split(":")[0]
+                    if len(kidGeno) == 1:
+                        kidGeno = "{}/{}".format(kidGeno, kidGeno)
                     kidAlleles = set(kidGeno.split(kidGeno[1]))
                     kidAlleles.discard(".")
                     if len(fatherAlleles) == 1 and len(kidAlleles) == 1 and kidAlleles.isdisjoint(fatherAlleles):
@@ -174,9 +185,13 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
                 mother = header.index(MID[j])
                 kid = header.index(j)
                 motherGeno = data[mother].split(":")[0]
+                if len(motherGeno) == 1:
+                    motherGeno = "{}/{}".format(motherGeno, motherGeno)
                 motherAlleles = set(motherGeno.split(motherGeno[1]))
                 motherAlleles.discard(".")
                 kidGeno = data[kid].split(":")[0]
+                if len(kidGeno) == 1:
+                    kidGeno = "{}/{}".format(kidGeno, kidGeno)
                 kidAlleles = set(kidGeno.split(kidGeno[1]))
                 kidAlleles.discard(".")
                 if len(motherAlleles) == 1 and len(kidAlleles) == 1 and kidAlleles.isdisjoint(motherAlleles):
