@@ -1,5 +1,41 @@
 Some tools for NGS studies
 
+- NGS_pipeline.sh
+```
+Usage: NGS_pipeline.sh <BAM_file/FASTQ_Files>
+  For example:
+    NGS_pipeline.sh id1.bam
+  OR:
+    NGS_pipeline.sh id1_R1.fastq.gz id1_R2.fastq.gz
+
+This script implements the GATK Best Practices (gatk v3.5). This is what this script will do:
+
+If the input file is a BAM file, it will be converted back to FASTQ files then followed by:
+ 1) mapping (bwa mem)
+ 2) mark duplicates & sort (Picard)
+ 3) Indel realignment
+ 4) Base recalibration
+ 5) Variant calling (HaplotypeCaller GVCF mode)
+If the input files are two FASTQ files, the mapping will be started right away.
+```
+
+- fixFastq.py
+```
+usage: fixFastq.py [-h] [--checkEncodingOnly] fastq1 fastq2 output
+
+Fix FASTQ files (remove singletons, resolve pairs, recode quality scores to
+Illumina-1.8 if needed)
+
+positional arguments:
+  fastq1               input fastq file for first read in paired end data
+  fastq2               input fastq file for second read in paired end data
+  output               the prefix of output fastq files
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --checkEncodingOnly  Use this flag if you only want to check the encoding
+```
+
 - vcfSummary.py
 ```
 usage: vcfSummary.py [-h] input output

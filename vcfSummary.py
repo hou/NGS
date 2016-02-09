@@ -119,7 +119,7 @@ def vcfSummary(vcf, file):
                                 #GT:FT:GQ:GL:DP:AD
                                 GT = geno['GT']
                                 DP = int(geno['DP'])
-                                GQ = int(geno['GQ'])
+                                GQ = float(geno['GQ'])
                                 if GT.split(GT[1])[0] != GT.split(GT[1])[1]:
                                     A1 += 1
                                     A2 += 1
@@ -166,7 +166,7 @@ def vcfSummary(vcf, file):
                                 #GT:FT:GQ:GL:DP:AD
                                 GT = geno['GT']
                                 DP = int(geno['DP'])
-                                GQ = int(geno['GQ'])
+                                GQ = float(geno['GQ'])
                                 if GT.split(GT[1])[0] != GT.split(GT[1])[1]:
                                     A1 += 1
                                     A2 += 1
@@ -187,21 +187,21 @@ def vcfSummary(vcf, file):
                 AC = A2
                 AN = A1 + A2
                 if AN != 0:
-                    AF = round(A2/AN, 3)
+                    AF = A2/AN
                 else:
                     AF = 'NA'
                 MISS = NN / nIndiv
-                output_var.write("{}\t{}\t{}\t{}\t{}\t{}/{}/{}/{}\n".format("\t".join(str(j) for j in data[0:5]), AC, AF, AN, MISS, AA, AB, BB, NN))
+                output_var.write("{}\t{}\t{:.3f}\t{}\t{:.3f}\t{}/{}/{}/{}\n".format("\t".join(str(j) for j in data[0:5]), AC, AF, AN, MISS, AA, AB, BB, NN))
     print("Writing individual level summary results to: [ {} ]".format(file + '.ind'))
     output_indv.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format('ID', 'NVAR', 'NALT', 'NHET', 'MISS', 'TiTv','QUAL','DP'))
     for i in ids:
-        output_indv.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(i, NVAR[i], NALT[i], NHET[i], round(iMiss[i]/nMarker, 3), round(Ti[i]/Tv[i], 3), round(QUAL[i]/NALT[i],2), round(DEPTH[i]/NALT[i],2)))
+        output_indv.write("{}\t{}\t{}\t{}\t{:.3f}\t{:.3f}\t{:.2f}\t{:.2f}\n".format(i, NVAR[i], NALT[i], NHET[i], iMiss[i]/nMarker, Ti[i]/Tv[i], QUAL[i]/NALT[i], DEPTH[i]/NALT[i]))
     input.close()
     output_var.close()
     output_indv.close()
     print("Found {} markers from [ {} ]".format(nMarker, vcf))
     print("Including {} multi-allelic markers, {} MNPs, {} Insertions, {} Deletions, {} SNPs".format(nMAP, nMNP, nIns, nDel, nSNP))
-    print("The overall Ti/Tv ratio is {}".format(round(nTi/nTv, 3)))
+    print("The overall Ti/Tv ratio is {:.3f}".format(nTi/nTv))
     print()
     print("Analysis finished: {}".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     print()

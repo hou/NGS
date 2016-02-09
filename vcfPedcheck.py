@@ -4,6 +4,7 @@
 
 import argparse
 import datetime 
+import gzip
 
 parser = argparse.ArgumentParser(description="Scan the vcf file for Mendelian Errors")
 parser.add_argument('vcf', help="The VCF input file")
@@ -57,7 +58,10 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
         zeroout
     except NameError:
         zeroout = False
-    input = open(vcf)
+    if vcf.endswith(".vcf.gz"):
+        input = gzip.open(vcf, 'rt')
+    else:
+        input = open(vcf)
     if zeroout:
         output = open(prefix + '.vcf', 'w')
     mendel = open(prefix + '.mendel', 'w')
