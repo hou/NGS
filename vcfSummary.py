@@ -5,6 +5,7 @@
 import sys
 import argparse
 import datetime 
+import gzip
 
 parser = argparse.ArgumentParser(description="Get variant-level (AC, AN, missing rate, ...) and individual-level (Ti/Tv, number of heterozygotes, ...) summary from a VCF file")
 parser.add_argument('input', help="The VCF input file")
@@ -18,7 +19,10 @@ def vcfSummary(vcf, file):
     print("Analysis started: {}".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     print()
     print("Reading vcf from [ {} ]".format(vcf))
-    input = open(vcf)
+    if vcf.endswith(".gz"):
+        input=gzip.open(vcf,'rt')
+    else:
+        input = open(vcf)
     output_indv = open(file+'.ind', 'w')
     output_var = open(file+'.var', 'w')
     iMiss = {}
@@ -72,7 +76,6 @@ def vcfSummary(vcf, file):
                 NVAR[i] = 0
                 DEPTH[i] = 0
                 QUAL[i] = 0
-
         else: 
             data = line.strip().split()
             geno_format = data[8]
@@ -118,8 +121,14 @@ def vcfSummary(vcf, file):
                                 geno = genoParser(data[i], geno_format)
                                 #GT:FT:GQ:GL:DP:AD
                                 GT = geno['GT']
-                                DP = int(geno['DP'])
-                                GQ = float(geno['GQ'])
+                                try:
+                                    DP = int(geno['DP'])
+                                except ValueError:
+                                    DP = 0
+                                try:
+                                    GQ = float(geno['GQ'])
+                                except ValueError:
+                                    GQ = 0.0
                                 if GT.split(GT[1])[0] != GT.split(GT[1])[1]:
                                     A1 += 1
                                     A2 += 1
@@ -165,8 +174,16 @@ def vcfSummary(vcf, file):
                                 geno = genoParser(data[i], geno_format)
                                 #GT:FT:GQ:GL:DP:AD
                                 GT = geno['GT']
-                                DP = int(geno['DP'])
-                                GQ = float(geno['GQ'])
+                                try:
+                                    DP = int(geno['DP'])
+                                except ValueError:
+                                    DP = 0
+                                try:
+                                    GQ = float(geno['GQ'])
+                                except ValueError:
+                                    GQ = 0.0
+                                #DP = int(geno['DP'])
+                                #GQ = float(geno['GQ'])
                                 if GT.split(GT[1])[0] != GT.split(GT[1])[1]:
                                     A1 += 1
                                     A2 += 1
