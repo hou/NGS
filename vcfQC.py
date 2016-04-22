@@ -10,7 +10,7 @@ import gzip
 parser = argparse.ArgumentParser(description="QC the vcf file by: 1) setting genotypes with GQ/DP/AB below the specified thresholds to missing; 2) removing/marking variants with high missing rate or low allele count")
 parser.add_argument('input', help="Name of the input file (VCF format)")
 parser.add_argument('output', help='Name of the output file with all bad genotypes excluded')
-parser.add_argument('--caller', help='which variant caller was used to generate the VCF input file', choices=['gatk','freebayes','platypus','samtools'], default='gatk')
+parser.add_argument('--caller', help='which variant caller was used to generate the VCF input file (default: gatk)', choices=['gatk','freebayes','platypus','samtools'], default='gatk')
 parser.add_argument('--GQ', help='Genotypes with "Genotype Quality" < N will be excluded (default: 20)', metavar="N", type=int, default=20)
 parser.add_argument('--DP', help='Genotypes with "Total Depth" < N will be excluded (default: 8)', metavar="N", type=int, default=8)
 parser.add_argument('--AB', help='Heterozygotes with "Allele Balance Ratio" < N (or > 1 - N) will be excluded (default: 0.25)', metavar="N", type=float, default=0.25)

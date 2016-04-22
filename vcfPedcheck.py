@@ -19,6 +19,18 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
     print()
     print("Analysis started: {}".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     print()
+    print("Reading vcf from [ {} ]".format(vcf))
+    if vcf.endswith(".vcf.gz"):
+        input = gzip.open(vcf, 'rt')
+    else:
+        input = open(vcf)
+    for line in input:
+        if line.startswith("#CHROM"): 
+            header = line.strip().split()
+            nIndiv = len(header) - 9
+            print("{} individuals read from [ {} ]".format(nIndiv, vcf))
+            vcfIDs = header[9:]
+            break
     print("Reading pedigree information from [ {} ]".format(fam))
     ped  = open(fam)
     FID = {}
@@ -50,18 +62,23 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
         elif tem[2] != "0" and tem[3] == "0":
             fatherKids.append(tem[1])
         else:
-            trios.append(tem[1])
+            if tem[2] in vcfIDs and tem[3] in vcfIDs:
+                trios.append(tem[1])
+            elif tem[2] in vcfIDs and tem[3] not in vcfIDs:
+                fatherKids.append(tem[1])
+                print("Warning: no genotype data for {}'s mother {}".format(tem[1], tem[3]))
+            elif tem[2] not in vcfIDs and tem[3] in vcfIDs:
+                motherKids.append(tem[1])
+                print("Warning: no genotype data for {}'s father {}".format(tem[1], tem[2]))
+            else:
+                founders.append(tem[1])
+                print("Warning: no genotype data for {}'s father {} and mother {}".format(tem[1], tem[2], tem[3]))
     print("{} individuals ({} females, {} males) read from [ {} ]".format(len(IID), nFemale, nMale, fam))
     print("Including {} trios and {} duos".format(len(trios),len(fatherKids)+len(motherKids)))
-    print("Reading vcf from [ {} ]".format(vcf))
     try:
         zeroout
     except NameError:
         zeroout = False
-    if vcf.endswith(".vcf.gz"):
-        input = gzip.open(vcf, 'rt')
-    else:
-        input = open(vcf)
     if zeroout:
         output = open(prefix + '.vcf', 'w')
     mendel = open(prefix + '.mendel', 'w')
@@ -74,17 +91,14 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
     HetHaploid.write("FID\tIID\tCHR\tPOS\tSNP\tREF\tALT\tGENO\n")
     nMendelError = nHetHaploid = nMEtag = 0
     nchrY = nchrM = 0
+    input.seek(0) #rewind the read pointer to the beginning
     for line in input:
         if line.startswith("##"):
             if zeroout:
                 output.write(line)
             continue
         elif line.startswith("#CHROM"): 
-            header = line.strip().split()
-            nIndiv = len(header) - 9
             niMendelError = [0 for i in header]
-            print("{} individuals read from [ {} ]".format(nIndiv, vcf))
-            vcfIDs = header[9:]
             if zeroout:
                 output.write("##FILTER=<ID=HighMendelianError,Description=\"Mendelian error rate greater than {} (based on trios)\">\n".format(me))
                 output.write(line)
@@ -106,7 +120,7 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
                 continue
             zeroout_index = []
             nTrioMendelError = 0
-            if chr == 'X':
+            if chr == 'X' or chr == 'chrX':
                 for i in range(9,len(data)):
                     geno = data[i].split(":")[0]
                     info = data[i][3:]
