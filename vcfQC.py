@@ -9,15 +9,62 @@ import gzip
 
 parser = argparse.ArgumentParser(description="QC the vcf file by: 1) setting genotypes with GQ/DP/AB below the specified thresholds to missing; 2) removing/marking variants with high missing rate or low allele count")
 parser.add_argument('input', help="Name of the input file (VCF format)")
-parser.add_argument('output', help='Name of the output file with all bad genotypes excluded')
+parser.add_argument('output', help='Name of the output file')
 parser.add_argument('--caller', help='which variant caller was used to generate the VCF input file (default: gatk)', choices=['gatk','freebayes','platypus','samtools'], default='gatk')
 parser.add_argument('--GQ', help='Genotypes with "Genotype Quality" < N will be excluded (default: 20)', metavar="N", type=int, default=20)
-parser.add_argument('--DP', help='Genotypes with "Total Depth" < N will be excluded (default: 8)', metavar="N", type=int, default=8)
+parser.add_argument('--DP', help='Genotypes with "Total Depth" < N will be excluded (default: 10)', metavar="N", type=int, default=10)
 parser.add_argument('--AB', help='Heterozygotes with "Allele Balance Ratio" < N (or > 1 - N) will be excluded (default: 0.25)', metavar="N", type=float, default=0.25)
 parser.add_argument('--MISSING', help='Add a "HighMissing" flag to the FILTER column for all Variants with missing rate > N (default: 0.25)', metavar="N", type=float, default=0.25)
 parser.add_argument('--AC', help='Add a "LowAC" flag to the FILTER column for all variants with AC < N (default: 1)', metavar="N", type=int, default=1)
-parser.add_argument('--RemoveFiltered', help='Use this flag to remove all "HighMissing/LowAC" variants', action='store_true')
+parser.add_argument('--RemoveFiltered', help='Use this flag to remove all filtered variants', action='store_true')
 args = parser.parse_args()
+
+# Pseudocode
+#if meta-informaion line:
+#    write
+#elif header line:
+#    write
+#else:
+#    read line
+#    if filtered: # no need to waste time to QC filtered variants
+#        if not remove filtered:
+#            write
+#        else:
+#            exclude
+#    if MAP: # exclude multi-allelic variants
+#        exclude
+#    if diploid: # exclude non-diploid variants
+#        for each variant:
+#            check genotypes one by one
+#            if genotype == missing:
+#                missing_count += 1
+#            elif homozygote:
+#                if low GQ:
+#                    zero out genotype
+#                    missing_count += 1
+#                if low DB:
+#                    zero out genotype
+#                    missing_count += 1
+#            else: # heterozygote
+#                if low GQ:
+#                    zero out genotype
+#                    missing_count += 1
+#                if low DB:
+#                    zero out genotype
+#                    missing_count += 1
+#                if biased AB:
+#                    zero out genotype
+#                    missing_count += 1
+#        if AC < threshold
+#            if not remove filtered
+#                mark the variant and write
+#            else:
+#                exclude
+#        if missing rate > threshold
+#            if not remove filtered
+#                mark the variant and write
+#            else:
+#                exclude
 
 def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_rate, allele_count, removeFiltered):
     print()
@@ -44,7 +91,7 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
         return(geno)
 
     badGQ = badDP = badAB = 0
-    nMarkers = nHalfCalls = badGeno = highMiss = lowAC = nMAP = nHet = nHaploid = nHetbadAD = nHetbadGQ = nHetbadDP = 0
+    nMarkers = nFiltered = nHalfCalls = badGeno = highMiss = lowAC = nMAP = nHet = nHaploid = nHetbadAD = nHetbadGQ = nHetbadDP = 0
     for line in input:
         if line.startswith("##"): # write meta-information lines to output 
             output.write(line)
@@ -58,6 +105,11 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
             data = line.strip().split()
             geno_format = data[8]
             nMarkers += 1
+            if not (data[6] == '.' or data[6] == 'PASS'): # if the filter column dose not equal to '.' or 'PASS' then skip the qc step
+                if not removeFiltered:
+                    output.write(line)
+                nFiltered += 1
+                continue
             if len(data[4].split(",")) != 1: # remove multi-allelic markers (MAPs)
                 nMAP += 1
                 continue
@@ -76,7 +128,6 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
                     elif data[i][0] == data[i][2]: # if hom
                         #print(data[i])
                         geno = genoParser(data[i], geno_format)
-                        GT = geno['GT']
                         if geno['GQ'] == '.':
                             GQ = None
                         else:
@@ -106,16 +157,15 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
                             geno['GT'] = './.'
                             badDP += 1
                             NN += 1
-                        data[i] = ":".join(geno[i] for i in geno_format.split(":"))
+                        data[i] = ":".join(geno[j] for j in geno_format.split(":"))
                         GT = geno['GT']
-                        #if GT == '1/1' or GT == '1|1':
+                        #if GT == '1/1' or GT == '1|1' after QC:
                         if GT.split(GT[1])[0] == GT.split(GT[1])[1] and GT.split(GT[1])[0] == '1':
                             A2 += 2
                     else: #if het
                         #print(data[i])
                         nHet += 1
                         geno = genoParser(data[i], geno_format)
-                        GT = geno['GT']
                         if geno['GQ'] == '.':
                             GQ = None
                         else:
@@ -187,55 +237,47 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
                     if removeFiltered:
                         pass
                     else:
-                        if data[6] == '.' or data[6] == 'PASS':
-                            data[6] = 'LowAC'
-                        elif 'LowAC' in data[6]:
+                        if 'LowAC' in data[6]:
                             pass
                         else:
-                            data[6] = data[6] + ';' + 'LowAC'
+                            data[6] = 'LowAC'
                         output.write("{}\n".format("\t".join(str(j) for j in data)))
                 elif NN / nIndiv > missing_rate:
                     highMiss += 1
                     if removeFiltered:
                         pass
                     else:
-                        if data[6] == '.' or data[6] == 'PASS':
-                            data[6] = 'HighMissing'
-                        elif 'HighMissing' in data[6]:
+                        if 'HighMissing' in data[6]:
                             pass
                         else:
-                            data[6] = data[6] + ';' + 'HighMissing'
+                            data[6] = 'HighMissing'
                         output.write("{}\n".format("\t".join(str(j) for j in data)))
                 else:
-                    if removeFiltered:
-                        if data[6] == '.' or data[6] == 'PASS':
-                            output.write("{}\n".format("\t".join(str(j) for j in data)))
-                    else:
-                        if data[6] == '.':
-                            data[6] = "PASS"
-                        output.write("{}\n".format("\t".join(str(j) for j in data)))
+                    output.write("{}\n".format("\t".join(str(j) for j in data)))
             else: # non-diploid
                 nHaploid += 1
     input.close()
     output.close()
-    print("{} markers, {} individuals to be included from [ {} ]".format(nMarkers, nIndiv, vcf))
-    print("{} multi-allelic variants were found and excluded".format(nMAP))
-    print("{} variants with non-diploid genotypes were excluded".format(nHaploid))
-    print("Total missing rate before QC is {}".format(round(badGeno/(nMarkers*nIndiv),3)))
+    print("{} markers (including {} filtered ones), {} individuals to be included from [ {} ]".format(nMarkers, nFiltered, nIndiv, vcf))
+    if nMAP > 0:
+        print("{} multi-allelic variants were found and excluded".format(nMAP))
+    if nHaploid > 0:
+        print("{} variants with non-diploid genotypes were excluded".format(nHaploid))
+    print("Total missing rate before QC is {:.2f}".format(badGeno/((nMarkers-nFiltered-nMAP-nHaploid)*nIndiv)))
     if nHalfCalls > 0:
         print("{} half-calls were set to missing".format(nHalfCalls))
-    print("{}({:.2f}%) genotypes (including: {} heterozygotes) removed with '--GQ {}' option".format(badGQ, badGQ/(nMarkers*nIndiv - badGeno)*100, nHetbadGQ, GQ_threshold))
-    print("{}({:.2f}%) genotypes (including: {} heterozygotes) removed with '--DP {}' option".format(badDP, badDP/(nMarkers*nIndiv - badGeno)*100, nHetbadDP, DP_threshold))
+    print("{}({:.2f}%) genotypes (including: {} heterozygotes) removed with '--GQ {}' option".format(badGQ, badGQ/((nMarkers-nFiltered-nMAP-nHaploid)*nIndiv - badGeno)*100, nHetbadGQ, GQ_threshold))
+    print("{}({:.2f}%) genotypes (including: {} heterozygotes) removed with '--DP {}' option".format(badDP, badDP/((nMarkers-nFiltered-nMAP-nHaploid)*nIndiv - badGeno)*100, nHetbadDP, DP_threshold))
     print("{}({:.2f}%) heterozygotes (out of {}) removed with '--AB {}' option".format(badAB, badAB/nHet*100, nHet, AB_threshold))
     if nHetbadAD > 0:
         print("Warning: {} of heterozygotes have malformed AD".format(nHetbadAD))
-    print("Total missing rate after QC is {:.2f}".format((badGQ + badDP + badAB + badGeno)/(nMarkers*nIndiv)))
+    print("Total missing rate after QC is {:.2f}".format((badGQ + badDP + badAB + badGeno)/((nMarkers-nFiltered-nMAP-nHaploid)*nIndiv)))
     if removeFiltered:
-        print("{}({:.2f}%) variants removed with '--AC {}' option".format(lowAC, lowAC/nMarkers*100, allele_count))
-        print("{}({:.2f}%) variants removed with '--MISSING {}' option".format(highMiss, highMiss/nMarkers*100, missing_rate))
+        print("{}({:.2f}%) variants removed with '--AC {}' option".format(lowAC, lowAC/(nMarkers-nFiltered-nMAP-nHaploid)*100, allele_count))
+        print("{}({:.2f}%) variants removed with '--MISSING {}' option".format(highMiss, highMiss/(nMarkers-nFiltered-nMAP-nHaploid)*100, missing_rate))
     else:
-        print("{}({:.2f}%) variants marked as 'lowAC' with '--AC {}' option".format(lowAC, lowAC/nMarkers*100, allele_count))
-        print("{}({:.2f}%) variants marked as 'HighMissing' with '--MISSING {}' option".format(highMiss, highMiss/nMarkers*100, missing_rate))
+        print("{}({:.2f}%) variants marked as 'lowAC' with '--AC {}' option".format(lowAC, lowAC/(nMarkers-nFiltered-nMAP-nHaploid)*100, allele_count))
+        print("{}({:.2f}%) variants marked as 'HighMissing' with '--MISSING {}' option".format(highMiss, highMiss/(nMarkers-nFiltered-nMAP-nHaploid)*100, missing_rate))
     print("Output file was written to: [ {} ]".format(file))
     print()
     print("Analysis finished: {}".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
