@@ -58,9 +58,17 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
         if tem[2] == "0" and tem[3] == "0":
             founders.append(tem[1])
         elif tem[2] == "0" and tem[3] != "0":
-            motherKids.append(tem[1])
+            if tem[3] in vcfIDs:
+                motherKids.append(tem[1])
+            else:
+                founders.append(tem[1])
+                print("Warning: no genotype data for {}'s mother {}".format(tem[1], tem[3]))
         elif tem[2] != "0" and tem[3] == "0":
-            fatherKids.append(tem[1])
+            if tem[2] in vcfIDs:
+                fatherKids.append(tem[1])
+            else:
+                founders.append(tem[1])
+                print("Warning: no genotype data for {}'s father {}".format(tem[1], tem[2]))
         else:
             if tem[2] in vcfIDs and tem[3] in vcfIDs:
                 trios.append(tem[1])
@@ -89,7 +97,7 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
     lmendel.write("CHR\tPOS\tSNP\tREF\tALT\tFILTER\tN\n")
     imendel.write("FID\tIID\tN\n")
     HetHaploid.write("FID\tIID\tCHR\tPOS\tSNP\tREF\tALT\tGENO\n")
-    nMendelError = nHetHaploid = nMEtag = 0
+    nMendelError = nHetHaploid = nMEtag = nMEtagFiltered = 0
     nchrY = nchrM = 0
     input.seek(0) #rewind the read pointer to the beginning
     for line in input:
@@ -228,6 +236,7 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
                         data[6] = 'HighMendelianError'
                     else:
                         data[6] = data[6] + ';' + 'HighMendelianError'
+                        nMEtagFiltered += 1
                     output.write("{}\n".format("\t".join(j for j in data)))
                     nMEtag += 1
                 else:
@@ -240,7 +249,7 @@ def vcfPedcheck(vcf, fam, prefix, zeroout, me):
     print("Writing list of Mendelian Errors to [ {} ]".format(prefix + '.mendel'))
     if zeroout:
         print("Creating a new vcf [ {} ] by zeroing out all Mendelian Errors".format(prefix + '.vcf'))
-        print("Marked {} variants as 'HighMendelianError' in the FILTER column".format(nMEtag))
+        print("Marked {} variants (including: {} filtered ones) as 'HighMendelianError' in the FILTER column".format(nMEtag, nMEtagFiltered))
         if nchrY >0 or nchrM > 0:
             print("Warning: {} variants on ChrY and {} variants on chrM were NOT included in the [ {} ]".format(nchrY, nchrM, prefix + '.vcf'))
     print()
