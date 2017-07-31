@@ -30,11 +30,11 @@ def selectVariant(input, output, gene_model, maf_threshold, splicing, frameshift
     else:
         func = header.index('Func.refGene')
         exonic = header.index('ExonicFunc.refGene')
-    popfreq = header.index('popfreq_max')
-    esp_ea = header.index('esp6500si_ea')
-    esp_all = header.index('esp6500si_all')
-    g1000_eur = header.index('1000g2012apr_eur')
-    g1000_all = header.index('1000g2012apr_all')
+    popfreq = header.index('PopFreqMax')
+    esp_ea = header.index('esp6500siv2_ea')
+    #esp_all = header.index('esp6500si_all')
+    g1000_eur = header.index('1000g2015aug_eur')
+    exac_all = header.index('ExAC_ALL')
     def af(x):
         if len(x) == 0:
             return(0.0)
@@ -70,7 +70,7 @@ def selectVariant(input, output, gene_model, maf_threshold, splicing, frameshift
         stop_loss = False
     for line in data:
         annovar = line.strip('\n').split('\t')
-        if af(annovar[popfreq]) > maf_threshold or af(annovar[esp_ea]) > maf_threshold or af(annovar[esp_all]) > maf_threshold or af(annovar[g1000_eur]) > maf_threshold or af(annovar[g1000_all]) > maf_threshold:
+        if af(annovar[popfreq]) > maf_threshold or af(annovar[esp_ea]) > maf_threshold or af(annovar[exac_all]) > maf_threshold or af(annovar[g1000_eur]) > maf_threshold:
             pass
         else:
             if splicing and annovar[func] == 'splicing':

@@ -97,8 +97,10 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
             output.write(line)
         elif line.startswith("#CHROM"):
             if not removeFiltered:
-                output.write("##FILTER=<ID=HighMissing,Description=\"Missing rate is greater than {}\">\n".format(missing_rate))
-                output.write("##FILTER=<ID=LowAC,Description=\"AC is less than {}\">\n".format(allele_count))
+                if missing_rate > 0:
+                    output.write("##FILTER=<ID=HighMissing,Description=\"Missing rate is greater than {}\">\n".format(missing_rate))
+                if allele_count > 0:
+                    output.write("##FILTER=<ID=LowAC,Description=\"AC is less than {}\">\n".format(allele_count))
             nIndiv = len(line.strip().split()) - 9
             output.write(line)
         else:
@@ -128,10 +130,16 @@ def vcfQC(vcf, file, caller, GQ_threshold, DP_threshold, AB_threshold, missing_r
                     elif data[i][0] == data[i][2]: # if hom
                         #print(data[i])
                         geno = genoParser(data[i], geno_format)
-                        if geno['GQ'] == '.':
-                            GQ = None
-                        else:
-                            GQ = float(geno['GQ'])
+                        if 'RGQ' in geno_format:
+                            if geno['RGQ'] == '.':
+                                GQ = None
+                            else:
+                                GQ = float(geno['RGQ'])
+                        elif 'GQ' in geno_format:
+                            if geno['GQ'] == '.':
+                                GQ = None
+                            else:
+                                GQ = float(geno['GQ'])
                         if caller == 'gatk':
                             if geno['DP'] == ".":
                                 DP = None
