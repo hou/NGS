@@ -6,6 +6,7 @@ import sys
 import argparse
 import datetime 
 import gzip
+import math
 
 parser = argparse.ArgumentParser(description="Get variant-level (AC, AN, missing rate, ...) and individual-level (Ti/Tv, number of heterozygotes, ...) summary from a VCF file")
 parser.add_argument('input', help="The VCF input file")
@@ -33,6 +34,9 @@ def vcfSummary(vcf, file):
     NVAR = {}
     DEPTH = {}
     QUAL = {}
+    AD_REF = {}
+    AD_ALT = {}
+#To do: add codes to estimate allele balance of all HET at the individual level
     def TiTv(x, y):
         nucleotides = ['A', 'C', 'T', 'G']
         if x not in nucleotides:
@@ -76,6 +80,8 @@ def vcfSummary(vcf, file):
                 NVAR[i] = 0
                 DEPTH[i] = 0
                 QUAL[i] = 0
+                AD_REF[i] = 0
+                AD_ALT[i] = 0
         else: 
             data = line.strip().split()
             geno_format = data[8]
@@ -206,7 +212,7 @@ def vcfSummary(vcf, file):
                 if AN != 0:
                     AF = A2/AN
                 else:
-                    AF = 'NA'
+                    AF = math.inf 
                 MISS = NN / nIndiv
                 output_var.write("{}\t{}\t{:.3f}\t{}\t{:.3f}\t{}/{}/{}/{}\n".format("\t".join(str(j) for j in data[0:5]), AC, AF, AN, MISS, AA, AB, BB, NN))
     print("Writing individual level summary results to: [ {} ]".format(file + '.ind'))
