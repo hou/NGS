@@ -18,14 +18,15 @@ if [ $# -ne 1 ] && [ $# -ne 2 ]; then
     echo "If the input file is a BAM file, it will be converted back to FASTQ files then followed by:"
     echo " 1) mapping (bwa mem)" 
     echo " 2) mark duplicates & sort (Picard)" 
-    echo " 3) Indel realignment"
-    echo " 4) Base recalibration" 
-    echo " 5) Variant calling (HaplotypeCaller GVCF mode)"
+    echo " 3) Base recalibration" 
+    echo " 4) Variant calling (HaplotypeCaller GVCF mode)"
     echo "If the input files are two FASTQ files, the mapping will be started right away."
     echo
     exit
 fi
 
+#modify the following lines as needed
+data_dir=/data/houl3/Amish/DRIFT-NIMH/Freeze2/BAM
 gatk_bundle_dir=/data/houl3/BSC_FAM/gatk_bundle
 ref=human_g1k_v37_decoy.fasta
 dbSNP=dbsnp_138.b37.vcf
@@ -33,7 +34,8 @@ indel_1000=1000G_phase1.indels.b37.vcf
 indel_Mills=Mills_and_1000G_gold_standard.indels.b37.vcf
 gatk_dir=/data/houl3/Softwares/gatk_3.5
 picard_dir=/data/houl3/Softwares/picard-tools-2.0.1
-#target_regions=BSC_FAM_target_regions.interval_list
+#target_regions=xgen-exome-research-panel-targets_Padded.v37.interval_list
+target_regions=/data/houl3/Amish/DRIFT-NIMH/Freeze1/BAM/xgen-exome-research-panel-targets_100bp_Padded.v37.interval_list
 
 #https://wiki.dnanexus.com/Scientific-Notes/human-genome
 #http://gatkforums.broadinstitute.org/gatk/discussion/1213/whats-in-the-resource-bundle-and-how-can-i-get-it
@@ -76,20 +78,17 @@ fi
 #wget ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/1000G_phase1.snps.high_confidence.b37.vcf.*
 #wget ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/hapmap_3.3.b37.vcf.*
 #wget ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/1000G_omni2.5.b37.vcf.*
-
+#http://gatkforums.broadinstitute.org/wdl/discussion/4133/when-should-i-use-l-to-pass-in-a-list-of-intervals
 
 echo "Analysis started: $(date)"
 if [ $# -eq 1 ]; then
     # Step 0: convert BAM to fastq files
-    id=$(basename $1 .bam)
+    id=$(basename $1 .realign.bam)
     echo "Converting BAM file to FASTQ files"
-    #SamToFastq failed for some BAM files
-    #samtools sort -n -o ${id}_SortByReadName.bam $1
-    #java -Xmx8g -jar $picard_dir/picard.jar SamToFastq I=${id}_SortByReadName.bam F=${id}_R1.fastq.gz F2=${id}_R2.fastq.gz VALIDATION_STRINGENCY=LENIENT
     echo "---> samtools fastq -1 ${id}_R1.fastq -2 ${id}_R2.fastq -n -O $1"
     samtools fastq -1 ${id}_R1.fastq -2 ${id}_R2.fastq -n -O $1
     echo "---> python3 fixFastq.py ${id}_R1.fastq ${id}_R2.fastq ${id}_fixed"
-    python3 fixFastq.py ${id}_R1.fastq ${id}_R2.fastq ${id}_fixed
+    python3 $data_dir/fixFastq.py ${id}_R1.fastq ${id}_R2.fastq ${id}_fixed
 fi
 
 if [ $# -eq 2 ]; then
@@ -144,45 +143,29 @@ if [ $? -eq 0 ]; then
     rm ${id}_sorted.bam
 fi
 
-# Step 3: Local realignment
-#https://www.broadinstitute.org/gatk/guide/article?id=1247
-echo "Local realigning ${id}_mkdup.bam around indels"
+# Step 3: Base quality recalibration
+echo "Base quality recalibration"
 
-echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T RealignerTargetCreator -R $gatk_bundle_dir/$ref -I ${id}_mkdup.bam -o ${id}_realign.intervals -known $gatk_bundle_dir/$indel_Mills -known $gatk_bundle_dir/$indel_1000" #-L $target_regions
-java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T RealignerTargetCreator -R $gatk_bundle_dir/$ref -I ${id}_mkdup.bam -o ${id}_realign.intervals -known $gatk_bundle_dir/$indel_Mills -known $gatk_bundle_dir/$indel_1000 #-L $target_regions
+echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -o ${id}_mkdup_recal.table -nct 8 -L $target_regions"
+java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -o ${id}_mkdup_recal.table -nct 8 -L $target_regions
 
-echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T IndelRealigner -R $gatk_bundle_dir/$ref -I ${id}_mkdup.bam -targetIntervals ${id}_realign.intervals -o ${id}_mkdup_realn.bam -known $gatk_bundle_dir/$indel_Mills -known $gatk_bundle_dir/$indel_1000 -model USE_READS"
-java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T IndelRealigner -R $gatk_bundle_dir/$ref -I ${id}_mkdup.bam -targetIntervals ${id}_realign.intervals -o ${id}_mkdup_realn.bam -known $gatk_bundle_dir/$indel_Mills -known $gatk_bundle_dir/$indel_1000 -model USE_READS
+echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -BQSR ${id}_mkdup_recal.table -o ${id}_mkdup_after_recal.table -nct 8 -L $target_regions"
+java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -BQSR ${id}_mkdup_recal.table -o ${id}_mkdup_after_recal.table -nct 8 -L $target_regions
 
-#java -Xmx8g -jar $picard_dir/picard.jar FixMateInformation I=${id}_mkdup_realn.bam SO=coordinate VALIDATION_STRINGENCY=SILENT CREATE_INDEX=true
+echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T AnalyzeCovariates -R $gatk_bundle_dir/$ref -before ${id}_mkdup_recal.table -after ${id}_mkdup_after_recal.table -plots ${id}_recal_plots.pdf"
+java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T AnalyzeCovariates -R $gatk_bundle_dir/$ref -before ${id}_mkdup_recal.table -after ${id}_mkdup_after_recal.table -plots ${id}_recal_plots.pdf
+
+echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T PrintReads -R $gatk_bundle_dir/$ref -I ${id}_mkdup.bam -BQSR ${id}_mkdup_recal.table -o ${id}_mkdup_recal.bam -nct 8"
+java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T PrintReads -R $gatk_bundle_dir/$ref -I ${id}_mkdup.bam -BQSR ${id}_mkdup_recal.table -o ${id}_mkdup_recal.bam -nct 8
 
 if [ $? -eq 0 ]; then
     rm ${id}_mkdup.bam
 fi
 
-# Step 4: Base quality recalibration
-echo "Base quality recalibration"
-
-echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup_realn.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -o ${id}_mkdup_realn_recal.table"
-java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup_realn.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -o ${id}_mkdup_realn_recal.table
-
-echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup_realn.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -BQSR ${id}_mkdup_realn_recal.table -o ${id}_mkdup_realn_after_recal.table"
-java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T BaseRecalibrator -I ${id}_mkdup_realn.bam -R $gatk_bundle_dir/$ref -knownSites $gatk_bundle_dir/$dbSNP -knownSites $gatk_bundle_dir/$indel_Mills -knownSites $gatk_bundle_dir/$indel_1000 -BQSR ${id}_mkdup_realn_recal.table -o ${id}_mkdup_realn_after_recal.table
-
-echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T AnalyzeCovariates -R $gatk_bundle_dir/$ref -before ${id}_mkdup_realn_recal.table -after ${id}_mkdup_realn_after_recal.table -plots ${id}_recal_plots.pdf"
-java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T AnalyzeCovariates -R $gatk_bundle_dir/$ref -before ${id}_mkdup_realn_recal.table -after ${id}_mkdup_realn_after_recal.table -plots ${id}_recal_plots.pdf
-echo "---> java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T PrintReads -R $gatk_bundle_dir/$ref -I ${id}_mkdup_realn.bam -BQSR ${id}_mkdup_realn_recal.table -o ${id}_mkdup_realn_recal.bam"
-
-java -Xmx8g -jar $gatk_dir/GenomeAnalysisTK.jar -T PrintReads -R $gatk_bundle_dir/$ref -I ${id}_mkdup_realn.bam -BQSR ${id}_mkdup_realn_recal.table -o ${id}_mkdup_realn_recal.bam
-
-if [ $? -eq 0 ]; then
-    rm ${id}_mkdup_realn.bam
-fi
-
-# Step 5: Variant calling
+# Step 4: Variant calling
 echo "Variant calling by HaplotypeCaller in GVCF mode"
 
-echo "---> java -Xmx16g -jar $gatk_dir/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatk_bundle_dir/$ref -I ${id}_mkdup_realn_recal.bam --emitRefConfidence GVCF --dbsnp $gatk_bundle_dir/$dbSNP -o ${id}.raw.snps.indels.g.vcf"
-java -Xmx16g -jar $gatk_dir/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatk_bundle_dir/$ref -I ${id}_mkdup_realn_recal.bam --emitRefConfidence GVCF --dbsnp $gatk_bundle_dir/$dbSNP -o ${id}.raw.snps.indels.g.vcf
+echo "---> java -Xmx16g -jar $gatk_dir/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatk_bundle_dir/$ref -I ${id}_mkdup_recal.bam --emitRefConfidence GVCF --dbsnp $gatk_bundle_dir/$dbSNP -o ${id}.raw.snps.indels.g.vcf -nct 8 -L $target_regions"
+java -Xmx16g -jar $gatk_dir/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatk_bundle_dir/$ref -I ${id}_mkdup_recal.bam --emitRefConfidence GVCF --dbsnp $gatk_bundle_dir/$dbSNP -o ${id}.raw.snps.indels.g.vcf -nct 8 -L $target_regions
 
 echo "Analysis finished: $(date)"
