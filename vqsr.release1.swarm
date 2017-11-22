@@ -1,0 +1,2 @@
+bash vqsr.release1.bash
+bash vqsr.release1.intersect.regions.bash
